@@ -1,0 +1,337 @@
+---
+title: An R Markdown document converted from "SamWitham_programming_test.ipynb"
+output: html_document
+---
+
+# 1) Read in datasets
+
+#### import libraries
+
+```{r}
+library(ggplot2)
+library(readxl)
+library(dplyr)
+```
+
+#### read in files as dataframes
+
+```{r}
+# read in files as dataframes (df)
+olivieri <- read.csv("../data/Olivieri2020_drugz_subset.csv")
+
+# add cell_line column to olivieri df (RPE1-hTERT)
+olivieri$cell_line <- "RPE1-hTERT"
+
+#reorder columns to GENE cell_line treatment normZ FDR
+olivieri <- olivieri[c("GENE", "cell_line", "treatment", "normZ", "FDR")]
+
+# rename columns to lowercase
+colnames(olivieri) <- tolower(colnames(olivieri))
+
+# read in xlsx, skip first row.
+hustedt <- read_excel("../data/Hustedt et al. 2019 - results - rsob190156supp2.xlsx", skip = 1)
+```
+
+#### preprocess hustedt df
+
+```{r}
+# make new df with columns 1-4
+hustedt_subset_azd6738 <- hustedt[,c(1, 2, 3, 4)]
+
+# make 2nd row the headers
+colnames(hustedt_subset_azd6738) <- hustedt_subset_azd6738[1, ]
+
+# remove 2nd row
+hustedt_subset_azd6738 <- hustedt_subset_azd6738[-1, ]
+
+# add cell_line column equal to RPE1-hTER
+hustedt_subset_azd6738$cell_line <- "RPE1-hTERT"
+
+# add treatment column equal to AZD6738
+hustedt_subset_azd6738$treatment <- "AZD6738"
+
+# rename column 1 to GENE
+colnames(hustedt_subset_azd6738)[1] <- "GENE"
+
+head(hustedt_subset_azd6738)
+```
+
+#### preprocess 2nd subset from Hustedt et al. 2019
+
+```{r}
+# make new df with columns 1, 5, 6 and 7
+hustedt_subset_rpe1htert_ve821 <- hustedt[, c(1, 5, 6, 7)]
+
+# make 2nd row the headers
+colnames(hustedt_subset_rpe1htert_ve821) <- hustedt_subset_rpe1htert_ve821[1, ]
+
+# remove 2nd row
+hustedt_subset_rpe1htert_ve821 <- hustedt_subset_rpe1htert_ve821[-1, ]
+
+# add cell_line column equal to RPE1-hTER
+hustedt_subset_rpe1htert_ve821$cell_line <- "RPE1-hTERT"
+
+# add treatment column equal to AZD6738
+hustedt_subset_rpe1htert_ve821$treatment <- "VE821"
+
+# rename column 1 to GENE
+colnames(hustedt_subset_rpe1htert_ve821)[1] <- "GENE"
+
+head(hustedt_subset_rpe1htert_ve821)
+```
+
+#### preprocess 3rd subset Hustedt et al. 2019
+
+```{r}
+# make new df with columns 1, 8, 9 and 10
+hustedt_subset_hela_ve821 <- hustedt[, c(1, 8, 9, 10)]
+
+# make 2nd row the headers
+colnames(hustedt_subset_hela_ve821) <- hustedt_subset_hela_ve821[1, ]
+
+# remove 2nd row
+hustedt_subset_hela_ve821 <- hustedt_subset_hela_ve821[-1, ]
+
+# add cell_line column equal to RPE1-hTER
+hustedt_subset_hela_ve821$cell_line <- "HeLa"
+
+# add treatment column equal to AZD6738
+hustedt_subset_hela_ve821$treatment <- "VE821"
+
+# rename column 1 to GENE
+colnames(hustedt_subset_hela_ve821)[1] <- "GENE"
+
+head(hustedt_subset_hela_ve821)
+```
+
+#### preprocess 4th subset Hustedt et al. 2019
+
+```{r}
+# make new df with columns 1, 11, 12 and 13
+hustedt_subset_hct116_ve821 <- hustedt[, c(1, 11, 12, 13)]
+
+# make 2nd row the headers
+colnames(hustedt_subset_hct116_ve821) <- hustedt_subset_hct116_ve821[1, ]
+# remove 2nd row
+hustedt_subset_hct116_ve821 <- hustedt_subset_hct116_ve821[-1, ]
+
+# add cell_line column equal to RPE1-hTER
+hustedt_subset_hct116_ve821$cell_line <- "HCT116"
+
+# add treatment column equal to AZD6738
+hustedt_subset_hct116_ve821$treatment <- "VE821"
+
+# rename column 1 to GENE
+colnames(hustedt_subset_hct116_ve821)[1] <- "GENE"
+
+head(hustedt_subset_hct116_ve821)
+```
+
+#### merge the four subsets
+
+```{r}
+# merge the four dataframes
+hustedt <- rbind(hustedt_subset_azd6738, hustedt_subset_rpe1htert_ve821, hustedt_subset_hela_ve821, hustedt_subset_hct116_ve821)
+
+# make columns 2,3 and 4 numeric
+hustedt[, 2:4] <- lapply(hustedt[, 2:4], as.numeric)
+
+# reorder columns to GENE cell_line treatment normZ FDR
+hustedt <- hustedt[c("GENE", "cell_line", "treatment", "normZ", "FDR", "p-value")]
+
+# rename columns to lowercase
+colnames(hustedt) <- tolower(colnames(hustedt))
+
+# remove p-value column
+hustedt <- hustedt[, -6]
+
+# remove NaNs
+hustedt_nonan <- hustedt[complete.cases(hustedt), ]
+olivieri_nonan <- olivieri[complete.cases(olivieri), ]
+```
+
+#### view files
+
+```{r}
+head(olivieri_nonan)
+```
+
+```{r}
+head(hustedt_nonan)
+```
+
+# 2) Explore both datasets
+
+#### In the Olivieri dataset, not all genes are present in each treatment
+
+```{r}
+# get number of unique genes in each treatment and cell line for each paper
+olivieri_nonan %>% count(treatment, cell_line)
+```
+
+#### In the Hustedt dataset, all treatments have an equal number (15910) of genes present. The are approximately 1400 fewer genes in the Hustedt dataset compared to the Olivieri dataset
+
+```{r}
+# get number of unique genes in each treatment and cell line for each paper
+hustedt_nonan %>% count(treatment, cell_line)
+```
+
+## 2a)
+
+#### The shape of the plots of normZ values vs FDR in each cell line/treatment are roughly the same although Cisplatin2, Cisplatin3 and KBrO3 treatments have larger peaks with higher FDR scores between 0 and 2 normZ. AZD6738, Cisplatin2, Cisplatin3 and UV cause the most lethality, with many normZ scores under -15. 
+
+```{r}
+# create function for plotting the normZ values for each cell line and treatment
+plotting <- function(df, cell_line, treatment, xlab, ylab, title) {
+  ggplot(df, aes(x = normz, y = fdr)) + # Construct aesthetic mappings which map 
+  # variables in the data to visual properties of the plot
+    # Add points
+    geom_point() +
+    # Add y intercept at 0.1
+    geom_hline(yintercept = 0.1, linetype = "dashed") +
+    # Add x intercept at -2.5
+    geom_vline(xintercept = -2.5, linetype = "dashed") +
+    # Add a subplot titles
+    facet_wrap(~ cell_line + treatment) +
+    # Add axis labels and title
+    labs(x = xlab, y = ylab, title = title)
+}
+```
+
+```{r}
+# plot the normZ values vs FDR for each cell line and treatment
+plotting(olivieri_nonan, "cell_line", "treatment", "normZ", "FDR", "Olivieri et al. 2020 DrugZ-calculated normZ scores vs FDR")
+# save plot as pdf
+ggsave("../data/Olivieri_normZ_FDR.pdf", width = 10, height = 10)
+```
+
+#### Again, the shape of the plots of normZ values vs FDR in each cell line/treatment in the Hustedt dataset are roughly the same although the RPE1-hTERT cell lines have larger peaks with higher FDR scores between 0 and 2 normZ. There are not many significantly lethal genes with normZ scores of -2.5 or under and FDR under 0.1 with the VE821 treatments
+
+```{r}
+# plot the normZ values vs FDR for each cell line and treatment, hustedt data
+plotting(hustedt_nonan, "cell_line", "treatment", "normZ", "FDR", "Hustedt et al. 2019 DrugZ-calculated normZ scores vs FDR")
+# save plot as pdf
+ggsave("../data/Hustedt_normZ_FDR.pdf", width = 10, height = 10)
+```
+
+#### There is a slight negative skew, with a wider range of negative normZ scores than positive
+
+```{r}
+# plot the distribution of the normZ values for each cell line and treatment
+ggplot(data = olivieri_nonan, aes(x = normz, fill = treatment)) +
+  geom_histogram(bins = 50) +
+  
+  facet_wrap(~cell_line) + 
+  labs(x = "normZ", y = "Count", title = "Distribution of normZ scores of various treatments with the \nRPE1-hTERT cell line in the Olivieri dataset")
+```
+
+```{r}
+# plot the distribution of the normZ values for each cell line and treatment
+ggplot(data = hustedt_nonan, aes(x = normz, fill = treatment)) + # Construct aesthetic mappings of variables to plot
+  # display histogram
+  geom_histogram(bins = 50) +
+  # add subplot titles
+  facet_wrap(~cell_line) +
+  # add axis labels and title
+  labs(x = "normZ", y = "Count", title = "Distribution of normZ scores of treatments and cell lines in the Hustedt dataset")
+
+# save plot as pdf
+ggsave("../data/Hustedt_normZ_distribution.pdf", width = 10, height = 10)
+```
+
+#### plot RPE1-hTERT cell_line, AZD6738 treatment from olivieri_nonan with AZD6738 treatment from hustedt_nonan
+
+```{r}
+# merge the dfs, creating a column for the paper
+olivieri_nonan$paper <- "Olivieri"
+hustedt_nonan$paper <- "Hustedt"
+merged <- merge(olivieri_nonan, hustedt_nonan, by = c("gene", "cell_line", "treatment", "normz", "fdr", "paper"), all = TRUE)
+
+# remove duplicates from merged based on gene, cell_line, treatment, normz, fdr
+merged_nodups <- merged[!duplicated(merged[, 1:5]), ]
+merged_dups = merged[duplicated(merged[, 1:5]), ]
+    
+# compare RPE1-hTERT cell_line and AZD6738 treatment
+merged_rpe1htert_azd6738 <- merged_nodups[merged_nodups$cell_line == "RPE1-hTERT" & merged_nodups$treatment == "AZD6738", ]
+```
+
+#### There are 15725 duplicate values between the two datasets!
+
+```{r}
+# number of genes in merged_dups
+nrow(merged_dups)
+```
+
+#### Using only non-duplicated values, the distribution of normZ scores between the two papers is similar, although the Hustedt dataset has a larger peak around 0. Ignoring the slight negative skew, the data look normally distributed
+
+```{r}
+# plot the distribution of the normZ values for each paper
+ggplot(data = merged_rpe1htert_azd6738, aes(x = normz, fill = paper), ) + # Construct aesthetic mappings of variables to plot
+  # display histogram
+  geom_histogram(bins = 50) +
+  # add subplot titles
+  facet_wrap(~cell_line) +
+  # add axis labels and title
+  labs(x = "normZ", y = "Frequency", title = "Distribution of normZ scores for RPE1-hTERT cell line and \n AZD6738 treatment between Hustedt and Olivieri datasets")
+
+# save plot as pdf
+ggsave("../data/compare_datasets_RPE1hTERT_AZD6738.pdf", width = 10, height = 10)
+```
+
+```{r}
+merged_rpe1htert_azd6738 %>% count(treatment, cell_line, paper)
+```
+
+## 2b) the datasets will be comparable if the intersect is taken based on genes present (so both datasets contain the same genes) since they are both normalised using DrugZ. This is assuming similar experimental conditions were used. The RPE1-hTERT cell lines are more comparable than the other cell lines, since they are present in both datasets. Note - some data points are present in both datasets so duplicates should be removed.
+
+# 3)
+
+## 3a) there are 3 cell lines in the two datasets (RPE1-hTERT, HeLa, HCT116)
+
+## 3b) There are 10 treatments. i) AZD6738 and VE821 are most similar based on their distributions
+
+## 3c) See the table below for the number of hits for each treatment/cell line per dataset
+
+```{r}
+# filter merged to include  normZ values <= -2.5 and FDR < 0.1
+merged_filtered <- merged[merged$normz <= -2.5 & merged$fdr < 0.1, ]
+
+# Count the number of genes in each treatment and cell line for each paper
+merged_filtered %>% count(treatment, cell_line, paper)
+```
+
+## 3d) I would prioritise genes which have lower normZ scores and which are present in the most treatments. I would also prioritise those genes with low normZ scores which were similar between cell lines.
+
+## 3e) I would visualise top synthetic lethal genes using a heatmap of gene vs treatment coloured by normZ score
+
+# 4) You could explore the genes with the highest normZ scores (resistant genes). You could test which genes were most stably synthetic lethal or resistant across different treatments, and look at which genes were synthetic lethal or resistant with only certain treatments. You could also check whether the same genes were found to be most synthetic lethal/resistance between the two datasets.
+
+# 5)
+
+## 5a) no the ATRi treatments are not more similar to each other compared to other non-ATRi treatments (looking at the distributions). Differences between cell lines are larger.
+
+## 5b) top 5 scoring genes are POLE3/4, RAD1, ATG9A and LCMT1
+
+```{r}
+# filter merged_filtered to include only AZD6738 and VE821 treatment
+merged_filtered_atri <- merged_filtered[merged_filtered$treatment == "AZD6738" | merged_filtered$treatment == "VE821", ]
+
+
+# rank by normZ, ascending
+merged_filtered_atri_ranked <- merged_filtered_atri[order(merged_filtered_atri$normz), ]
+
+# remove duplicates, ignoring paper
+merged_filtered_atri_nodups <- merged_filtered_atri_ranked[!duplicated(merged_filtered_atri_ranked[, 1:5]), ]
+
+head(merged_filtered_atri_nodups)
+```
+
+```{r}
+#get unique cell lines merged_filtered_atri
+unique(merged_filtered_atri$cell_line)
+```
+
+## 5c) consensus genes would be those that are the top ranked in both ATRi treatments i) I would expect cell line specific effects too, which might be due to batch or biological effects specific to each cell line
+
+## 5d) You could check whether genes were enriched in a certain molecular pathway using a Gene Ontology / pathway enrichment analysis
+
